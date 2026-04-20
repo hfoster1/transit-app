@@ -11,11 +11,11 @@
 </head>
 <body>
   <div id="root"></div>
-  
+
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    const Train = ({ className }) => (
+    const TrainIcon = ({ className }) => (
       <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="3" width="16" height="16" rx="2"/>
         <path d="M4 11h16"/>
@@ -49,6 +49,64 @@
       </svg>
     );
 
+    const isDepartureTrain = (train) =>
+      !train.service.toLowerCase().includes('drop-off') &&
+      !train.scheduledTime.toLowerCase().includes('drop-off');
+
+    const minutesValue = (minutesUntil) => parseInt(minutesUntil) || 0;
+
+    const countdownColor = (minutesUntil) => {
+      const mins = minutesValue(minutesUntil);
+      if (minutesUntil === 'Now') return 'text-red-400';
+      if (mins <= 5) return 'text-red-400';
+      if (mins <= 10) return 'text-yellow-400';
+      return 'text-green-400';
+    };
+
+    const NextTrainHero = ({ train }) => {
+      if (!train) return null;
+      const isDep = isDepartureTrain(train);
+      const color = countdownColor(train.minutesUntil);
+
+      return (
+        <div className="bg-gray-800 border border-gray-600 rounded-xl p-6 mb-4 text-center">
+          <p className="text-xs uppercase tracking-widest text-gray-500 mb-1">
+            Next {isDep ? 'Departure' : 'Arrival'}
+          </p>
+          <div className={`text-6xl font-black tabular-nums mb-1 ${color}`}>
+            {train.minutesUntil}
+          </div>
+          <p className="text-gray-400 text-sm">
+            {isDep ? 'To City' : 'From City'} &middot; scheduled {train.scheduledTime}
+          </p>
+        </div>
+      );
+    };
+
+    const TrainCard = ({ train }) => {
+      const isDep = isDepartureTrain(train);
+      const color = countdownColor(train.minutesUntil);
+
+      return (
+        <div className="bg-gray-800 rounded-lg p-4 mb-2 border border-gray-700 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-full ${isDep ? 'bg-green-900' : 'bg-blue-900'}`}>
+              <TrainIcon className={`w-4 h-4 ${isDep ? 'text-green-400' : 'text-blue-400'}`} />
+            </div>
+            <div>
+              <div className="font-semibold text-gray-100 text-sm">
+                {isDep ? 'Departure \u2192 City' : 'Arrival \u2190 City'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">Scheduled {train.scheduledTime}</div>
+            </div>
+          </div>
+          <div className={`text-xl font-bold tabular-nums ${color}`}>
+            {train.minutesUntil}
+          </div>
+        </div>
+      );
+    };
+
     function DoombenTrains() {
       const [trains, setTrains] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -60,28 +118,13 @@
       const fetchTrains = async () => {
         setLoading(true);
         setError(null);
-        
         try {
           const response = await fetch(WORKER_URL);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const data = await response.json();
-          
-          if (data.error) {
-            throw new Error(data.error);
-          }
-          
-          if (!data.trains || data.trains.length === 0) {
-            setTrains([]);
-          } else {
-            setTrains(data.trains);
-          }
-          
+          if (data.error) throw new Error(data.error);
+          setTrains(data.trains || []);
           setLastUpdate(new Date());
-          
         } catch (err) {
           setError(err.message);
         } finally {
@@ -95,114 +138,74 @@
         return () => clearInterval(interval);
       }, []);
 
-      const formatTime = (date) => {
-        return date.toLocaleTimeString('en-AU', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        });
-      };
+      const formatTime = (date) =>
+        date.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
 
-      const TrainCard = ({ train }) => {
-        const isDropOff = train.service.toLowerCase().includes('drop-off') || 
-                          train.scheduledTime.toLowerCase().includes('drop-off');
-        
-        const isArrival = isDropOff;
-        const isDeparture = !isDropOff;
-        
-        return (
-          <div className="bg-gray-800 rounded-lg shadow-lg p-4 mb-3 hover:bg-gray-750 transition-all border border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1">
-                <div className={`p-2 rounded-full ${isDeparture ? 'bg-green-900' : 'bg-blue-900'}`}>
-                  <Train className={`w-5 h-5 ${isDeparture ? 'text-green-400' : 'text-blue-400'}`} />
-                </div>
-                <div className="flex-1">
-                  <div className="font-semibold text-gray-100">
-                    {isDeparture ? 'Departure' : 'Arrival'}
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    {isDeparture ? 'To City' : 'From City'} • {train.scheduledTime}
-                  </div>
-                </div>
-              </div>
-              <div className="text-right ml-4">
-                <div className={`text-2xl font-bold ${
-                  train.minutesUntil.includes('min') && parseInt(train.minutesUntil) <= 5 
-                    ? 'text-red-400' 
-                    : 'text-blue-400'
-                }`}>
-                  {train.minutesUntil}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      };
+      const nextDeparture = trains.find(isDepartureTrain);
 
       return (
         <div className="min-h-screen bg-gray-900 p-4">
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-6 mb-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-600 p-3 rounded-full">
-                    <Train className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-100">Doomben Station</h1>
-                    <p className="text-sm text-gray-400">Platform 1 - Live Times</p>
-                  </div>
+          <div className="max-w-md mx-auto">
+
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 p-2.5 rounded-full">
+                  <TrainIcon className="w-5 h-5 text-white" />
                 </div>
-                <button
-                  onClick={fetchTrains}
-                  disabled={loading}
-                  className="p-2 rounded-full hover:bg-gray-700 transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-5 h-5 text-gray-300 ${loading ? 'animate-spin' : ''}`} />
-                </button>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-100 leading-tight">Doomben Station</h1>
+                  <p className="text-xs text-gray-500">Platform 1 &middot; Live Times</p>
+                </div>
               </div>
-              
-              {lastUpdate && (
-                <div className="text-xs text-gray-500 text-center">
-                  Last updated: {formatTime(lastUpdate)}
-                </div>
-              )}
+              <button
+                onClick={fetchTrains}
+                disabled={loading}
+                className="p-2 rounded-full hover:bg-gray-800 transition-colors disabled:opacity-40"
+                aria-label="Refresh"
+              >
+                <RefreshCw className={`w-5 h-5 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+              </button>
             </div>
 
+            {/* Next train hero */}
+            {!error && <NextTrainHero train={nextDeparture} />}
+
+            {/* Error state */}
             {error && (
-              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-red-200 font-semibold">Error loading data</p>
-                    <p className="text-sm text-red-300 mt-1">{error}</p>
-                  </div>
+              <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-4 flex gap-2">
+                <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-red-200 font-semibold text-sm">Failed to load data</p>
+                  <p className="text-xs text-red-300 mt-0.5">{error}</p>
                 </div>
               </div>
             )}
 
+            {/* Loading skeleton */}
             {loading && trains.length === 0 && (
-              <div className="bg-gray-800 rounded-lg shadow-lg p-8 text-center border border-gray-700">
-                <RefreshCw className="w-12 h-12 text-blue-500 mx-auto mb-3 animate-spin" />
-                <p className="text-gray-300">Loading live train data...</p>
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="bg-gray-800 rounded-lg p-4 border border-gray-700 animate-pulse h-16" />
+                ))}
               </div>
             )}
 
+            {/* No services */}
             {!loading && !error && trains.length === 0 && (
               <div className="bg-yellow-900 border border-yellow-700 rounded-lg p-6 text-center">
-                <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
-                <p className="text-yellow-200 font-semibold">No upcoming trains</p>
-                <p className="text-sm text-yellow-300 mt-2">
-                  There are no scheduled services in the next 90 minutes.
-                </p>
+                <AlertCircle className="w-10 h-10 text-yellow-400 mx-auto mb-2" />
+                <p className="text-yellow-200 font-semibold">No upcoming services</p>
+                <p className="text-xs text-yellow-300 mt-1">Nothing scheduled in the next 90 minutes.</p>
               </div>
             )}
 
+            {/* Train list */}
             {trains.length > 0 && (
               <div>
-                <h2 className="text-lg font-semibold text-gray-200 mb-3 flex items-center gap-2">
-                  <ArrowRight className="w-5 h-5" />
-                  Arrivals & Departures (90 mins)
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2 flex items-center gap-1">
+                  <ArrowRight className="w-3 h-3" />
+                  All services &mdash; next 90 min
                 </h2>
                 {trains.map((train, i) => (
                   <TrainCard key={i} train={train} />
@@ -210,18 +213,22 @@
               </div>
             )}
 
-            <div className="mt-6 bg-green-900 border border-green-700 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-sm text-green-200">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="font-semibold">Live data from TransLink via Cloudflare Worker</span>
+            {/* Footer */}
+            <div className="mt-5 flex items-center justify-between text-xs text-gray-600">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                <span>TransLink via Cloudflare Worker</span>
               </div>
+              {lastUpdate && <span>Updated {formatTime(lastUpdate)}</span>}
             </div>
+
           </div>
         </div>
       );
     }
 
-    ReactDOM.render(<DoombenTrains />, document.getElementById('root'));
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<DoombenTrains />);
   </script>
 </body>
 </html>
