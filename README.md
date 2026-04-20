@@ -26,35 +26,12 @@ The app is a single `index.html` file — no build step, no Node, no bundler. It
 
 ## Features
 
-- **Next departure hero** — big countdown to your next train to the city
 - **Full 90-minute schedule** — all upcoming arrivals and departures
 - **Color-coded countdowns** — green (>10 min), yellow (5–10 min), red (<5 min)
 - **Auto-refresh** — data refreshes every 30 seconds
 - **Manual refresh** — tap the refresh button anytime
 - **Loading skeletons** — no jarring blank states while data loads
 - **Error handling** — clear message if the Worker or TransLink is unreachable
-
----
-
-## Deployment
-
-The app deploys automatically to GitHub Pages via GitHub Actions whenever you push to `main`.
-
-### First-time setup
-
-1. Go to **Settings → Pages** in your GitHub repo
-2. Under *Source*, select **GitHub Actions**
-3. Push any commit to `main` — the workflow in `.github/workflows/deploy.yml` will build and publish the site
-
-The workflow uses the official `actions/deploy-pages` action, which is the current recommended approach for Pages deployments.
-
-### Why Pages was failing
-
-GitHub Pages requires either:
-- A branch/folder source configured in repo settings, **or**
-- A GitHub Actions workflow with `pages: write` and `id-token: write` permissions
-
-Without the workflow file (`.github/workflows/deploy.yml`), there was nothing to trigger a deployment. Adding the workflow file and setting *Source → GitHub Actions* in repo settings fixes this.
 
 ---
 
@@ -108,11 +85,8 @@ The app will immediately try to hit the live Worker URL. If you're working on th
 
 ```
 transit-app/
-├── index.html                  # The entire frontend
-├── README.md
-└── .github/
-    └── workflows/
-        └── deploy.yml          # GitHub Pages deployment workflow
+├── index.html     # The entire frontend
+└── README.md
 ```
 
 ---
